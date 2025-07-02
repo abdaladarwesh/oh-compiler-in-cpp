@@ -1,5 +1,8 @@
 # Ignore build artifacts
 /build/
+/.cache/
+/Debug/
+/assembly_experimental/
 /bin/
 /obj/
 *.exe
@@ -26,9 +29,9 @@ Desktop.ini
 .vscode/
 .idea/
 *.code-workspace
-*.cache/
-.assembly expirmental/
-Debug/
+.cache/
+/.assembly_experimental/
+/Debug/
 
 
 # Ignore CMake files
@@ -44,3 +47,8 @@ Makefile
 *~
 *.swp
 *.bak
+
+# Ignore these directories anywhere in the project
+**/.cache/
+**/.assembly_experimental/
+**/Debug/
