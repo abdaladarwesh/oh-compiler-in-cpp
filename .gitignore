@@ -26,6 +26,10 @@ Desktop.ini
 .vscode/
 .idea/
 *.code-workspace
+*.cache/
+.assembly expirmental/
+Debug/
+
 
 # Ignore CMake files
 CMakeFiles/
