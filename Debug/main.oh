@@ -1,0 +1,4 @@
+var y = 6;
+let x = 10
+x = 87;
+exit(x);

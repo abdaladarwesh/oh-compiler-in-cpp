@@ -1,0 +1,42 @@
+# Ignore build artifacts
+/build/
+/bin/
+/obj/
+*.exe
+*.out
+*.o
+*.obj
+*.dll
+*.so
+*.a
+*.lib
+
+# Ignore user-specific files
+*.user
+*.suo
+*.userprefs
+
+# Ignore OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Ignore IDE/editor files
+.vscode/
+.idea/
+*.code-workspace
+
+# Ignore CMake files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# Ignore logs
+*.log
+
+# Ignore backup files
+*~
+*.swp
+*.bak
