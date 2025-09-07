@@ -10,14 +10,14 @@ class tokinaizer
 public:
     enum class TokenType
     {
-        Exit,
-        Number,
-        OpenPrenc,
-        ClosePrenc,
-        semi,
-        Var,
-        Ident,
-        eq
+        EXIT,
+        NUMBER,
+        OPENPREC,
+        CLOSEPRENC,
+        SEMI,
+        VAR,
+        IDENT,
+        EQ
     };
     struct Token
     {
@@ -53,16 +53,16 @@ public:
                 }
                 if (word == "exit")
                 {
-                    tokens.push_back({TokenType::Exit, word, line});
+                    tokens.push_back({TokenType::EXIT, word, line});
                 }
                 else if (word == "var" || word == "let")
                 { // allow let as alias
-                    tokens.push_back({TokenType::Var, word, line});
+                    tokens.push_back({TokenType::VAR, word, line});
                     i++;
                 }
                 else
                 {
-                    tokens.push_back({TokenType::Ident, word, line});
+                    tokens.push_back({TokenType::IDENT, word, line});
                 }
                 continue;
             }
@@ -74,14 +74,14 @@ public:
                     word += src[i];
                     i++;
                 }
-                tokens.push_back({TokenType::Number, word, line});
+                tokens.push_back({TokenType::NUMBER, word, line});
                 continue;
             }
             if (src[i] == '(')
             {
                 string word;
                 word += src[i];
-                tokens.push_back({TokenType::OpenPrenc, word, line});
+                tokens.push_back({TokenType::OPENPREC, word, line});
                 i++;
                 continue;
             }
@@ -89,7 +89,7 @@ public:
             {
                 string word;
                 word += src[i];
-                tokens.push_back({TokenType::ClosePrenc, word, line});
+                tokens.push_back({TokenType::CLOSEPRENC, word, line});
                 i++;
                 continue;
             }
@@ -97,7 +97,7 @@ public:
             {
                 string word;
                 word += src[i];
-                tokens.push_back({TokenType::semi, word, line});
+                tokens.push_back({TokenType::SEMI, word, line});
                 i++;
                 continue;
             }
@@ -105,7 +105,7 @@ public:
             {
                 string word;
                 word += src[i];
-                tokens.push_back({TokenType::eq, word, line});
+                tokens.push_back({TokenType::EQ, word, line});
                 i++;
                 continue;
             }

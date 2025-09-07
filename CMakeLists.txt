@@ -3,7 +3,7 @@ project(Tokenizer)
 
 
 
-add_executable(ohc src/main.cpp src/Tokenizer.hpp src/parser.hpp src/Generator.hpp)
+add_executable(ohc src/main.cpp src/Tokenizer.hpp src/parser.hpp src/Generator.hpp src/arena.hpp)
 set(CMAKE_CXX_STANDARD 20)
 
 set_target_properties(ohc PROPERTIES

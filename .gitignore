@@ -1,52 +1,6 @@
-# === Build Artifacts ===
-/build/
-/Debug/
-/.cache/
-/assembly_expirmental/
-/bin/
-/obj/
-
-# === Compiled Binaries ===
-*.exe
-*.out
-*.o
-*.obj
-*.dll
-*.so
-*.a
-*.lib
-
-# === IDE and Editor Files ===
+.cache/
+build/
+debug/
+Debug/
+assembly_expirmental/
 .vscode/
-.idea/
-*.code-workspace
-
-# === User-specific Files ===
-*.user
-*.suo
-*.userprefs
-
-# === OS Generated Files ===
-.DS_Store
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# === CMake Files ===
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-
-# === Logs ===
-*.log
-
-# === Backup / Temp Files ===
-*~
-*.swp
-*.bak
-
-# === Ignore These Directories Anywhere in the Project ===
-/.cache
-/Debug
-/assembly_expirmental

@@ -43,8 +43,8 @@ int main(int argc, char *argv[])
     }
     myFile.close(); // close the file because the assembler and the linker fails if the file is not closed
 
-    system("nasm -f win64 main.asm -o main.obj"); // assemble the assembly file to a object file
-    system("ld main.obj -o main.exe -lkernel32"); // link the assembly file to create a excutable AKA .exe file
+    system("nasm -f elf64 main.asm -o main.obj"); // assemble the assembly file to a object file
+    system("ld main.obj -o main.out"); // link the assembly file to create a excutable AKA .exe file
 
     exit(EXIT_SUCCESS); // just the equivlent to return 0;
 }
