@@ -47,6 +47,6 @@ Makefile
 *.bak
 
 # === Ignore These Directories Anywhere in the Project ===
-**/.cache/
-**/Debug/
-**/assembly_expirmental/
+/.cache
+/Debug
+/assembly_expirmental
