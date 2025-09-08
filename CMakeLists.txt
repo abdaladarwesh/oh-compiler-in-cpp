@@ -3,8 +3,9 @@ project(Tokenizer)
 
 
 
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON) # Optional: Makes C++23 a hard requirement
 add_executable(ohc src/main.cpp src/Tokenizer.hpp src/parser.hpp src/Generator.hpp src/arena.hpp)
-set(CMAKE_CXX_STANDARD 20)
 
 set_target_properties(ohc PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_SOURCE_DIR}/debug"

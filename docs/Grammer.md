@@ -11,14 +11,18 @@ $$
 \end{cases} \\
 \text{[Expr]} \to 
 \begin{cases}
-    \text{int\_let} \\
-    \text{ident} \\
-    \text{BinExpr}
+    \text{[Term]} \\
+    \text{[BinExpr]}
 \end{cases} \\
 \text{[BinExpr]} \to 
 \begin{cases}
     \text{[Expr] + [Expr]} & \text{pred = 0} \\
     \text{[Expr] * [Expr]} & \text{pred = 1}
+\end{cases} \\
+\text{[Term]} \to
+\begin{cases}
+    \text{int\_let} \\
+    \text{ident} \\
 \end{cases}
 
 $$

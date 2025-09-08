@@ -2,6 +2,7 @@
 #include "Tokenizer.hpp"
 #include "arena.hpp"
 #include "logging.hpp"
+#include <cstdlib>
 #include <optional>
 #include <variant>
 #include <vector>
@@ -9,17 +10,20 @@ using namespace std;
 
 class parser {
 public:
-  struct NodeInt
-  {
+  struct NodeInt {
     tokinaizer::Token int_lit;
   };
-  struct NodeIdent
-  {
+  struct NodeIdent {
     tokinaizer::Token ident;
   };
+
+  struct NodeTerm {
+    std::variant<NodeInt *, NodeIdent *> var;
+  };
+
   struct BinExpr;
   struct NodeExpr {
-    std::variant<NodeInt* , NodeIdent*, BinExpr*> expr;
+    std::variant<NodeTerm *, BinExpr *> var;
   };
   struct NodeVar {
     tokinaizer::Token token; // the name
@@ -34,29 +38,29 @@ public:
   };
 
   struct NodeStmt {
-    variant<NodeExit *, NodeVar *, NodeAssign *> stmt;
+    variant<NodeExit *, NodeVar *, NodeAssign *> var;
   };
   struct NodeProg {
     vector<NodeStmt *> stmts;
   };
 
-  struct BinExprPlus {
+  struct NodeBinExprPlus {
     NodeExpr *lhs;
     NodeExpr *rhs;
   };
-  struct BinExprMulti {
+  struct NodeBinExprMulti {
     NodeExpr *lhs;
     NodeExpr *rhs;
   };
   struct BinExpr {
-    std::variant<BinExprMulti *, BinExprPlus *> Expr;
+    std::variant<NodeBinExprMulti *, NodeBinExprPlus *> var;
   };
 
   NodeProg parse_stmt(vector<tokinaizer::Token> toks) {
     tokens = toks;
     size = 0;
     vector<NodeStmt *> stmts;
-    optional<NodeExpr*> expr;
+    optional<NodeExpr *> expr;
     while (size < tokens.size()) {
       if (toks[size].type == tokinaizer::TokenType::EXIT) {
         consume();
@@ -71,23 +75,23 @@ public:
         NodeExit *nodeExit = m_arena.alloc<NodeExit>();
         nodeExit->expr = expr.value();
         NodeStmt *nodeStmt = m_arena.alloc<NodeStmt>();
-        nodeStmt->stmt = nodeExit;
+        nodeStmt->var = nodeExit;
         stmts.push_back(nodeStmt);
       } else if (toks[size].type == tokinaizer::TokenType::VAR) {
         consume();
         auto var_token = toks[size];
         try_consume(tokinaizer::TokenType::IDENT, "Expected an identfire");
         try_consume(tokinaizer::TokenType::EQ, "Expected '='");
-        optional<NodeExpr*> expr = parse_expr(peek().value());
+        optional<NodeExpr *> expr = parse_expr(peek().value());
         if (!expr.has_value()) {
-          logging::error("invalid Exepression", peek().value());
+          logging::error("invalid Exepression var", peek().value());
         }
         try_consume(tokinaizer::TokenType::SEMI, "Expected ';'");
         NodeVar *nodeVar = m_arena.alloc<NodeVar>();
         nodeVar->token = var_token;
         nodeVar->expr = expr.value();
         NodeStmt *nodeStmt = m_arena.alloc<NodeStmt>();
-        nodeStmt->stmt = nodeVar;
+        nodeStmt->var = nodeVar;
         stmts.push_back(nodeStmt);
 
       } else if (peek()->type == tokinaizer::TokenType::IDENT) {
@@ -96,14 +100,14 @@ public:
         try_consume(tokinaizer::TokenType::EQ, "Expected an equal");
         auto expr = parse_expr(peek().value());
         if (!expr.has_value()) {
-          logging::error("invalid Exepression", peek().value());
+          logging::error("invalid Exepression ident", peek().value());
         }
         try_consume(tokinaizer::TokenType::SEMI, "Expected ';'");
         NodeAssign *nodeAssign = m_arena.alloc<NodeAssign>();
         nodeAssign->token = var_token;
         nodeAssign->expr = expr.value();
         NodeStmt *nodeStmt = m_arena.alloc<NodeStmt>();
-        nodeStmt->stmt = nodeAssign;
+        nodeStmt->var = nodeAssign;
         stmts.push_back(nodeStmt);
       }
     }
@@ -113,8 +117,56 @@ public:
   ~parser() {}
 
 private:
-  vector<tokinaizer::Token> tokens;
-  size_t size = 0;
+
+  optional<NodeTerm *> parse_term(tokinaizer::Token token) {
+    if (token.type == tokinaizer::TokenType::NUMBER) {
+      NodeInt *nodeInt = m_arena.alloc<NodeInt>();
+      nodeInt->int_lit = token;
+      NodeTerm *nodeTerm = m_arena.alloc<NodeTerm>();
+      nodeTerm->var = nodeInt;
+      consume();
+      return nodeTerm;
+    }
+    if (token.type == tokinaizer::TokenType::IDENT) {
+      consume();
+      NodeIdent *nodeIdent = m_arena.alloc<NodeIdent>();
+      nodeIdent->ident = token;
+      NodeTerm *nodeTerm = m_arena.alloc<NodeTerm>();
+      nodeTerm->var = nodeIdent;
+      return nodeTerm;
+    } else {
+      return {};
+    }
+  }
+
+  optional<NodeExpr *> parse_expr(tokinaizer::Token token) {
+    if (auto lhsterm = parse_term(token)) {
+      if (peek().has_value() &&
+          peek().value().type == tokinaizer::TokenType::PLUS) {
+        consume();
+        BinExpr* binExpr = m_arena.alloc<BinExpr>();
+        NodeExpr* lhs = m_arena.alloc<NodeExpr>();
+        lhs->var = lhsterm.value();
+        NodeExpr* rhs = m_arena.alloc<NodeExpr>();
+        rhs->var = parse_term(peek().value()).value();
+        NodeBinExprPlus* plusExpr = m_arena.alloc<NodeBinExprPlus>();
+        plusExpr->lhs = lhs;
+        plusExpr->rhs = rhs;
+        binExpr->var = plusExpr;
+        NodeExpr* TheExpr = m_arena.alloc<NodeExpr>();
+        TheExpr->var = binExpr;
+        return TheExpr;
+      } 
+      else {
+        NodeExpr *nodeExpr = m_arena.alloc<NodeExpr>();
+        nodeExpr->var = lhsterm.value();
+        return nodeExpr;
+      } 
+    }
+    return {};
+  }
+
+
 
   optional<tokinaizer::Token> peek(int offset = 0) {
     if (size + offset < tokens.size()) {
@@ -129,30 +181,12 @@ private:
     if (auto token = peek(); token.has_value() && token->type == ty) {
       consume();
     } else {
-      logging::error(err, peek().value());
+      logging::error(err, peek(-1).value());
     }
   }
 
-  optional<NodeExpr*> parse_expr(tokinaizer::Token token) {
-    if (token.type == tokinaizer::TokenType::NUMBER) {
-      consume();
-      NodeInt* nodeInt = m_arena.alloc<NodeInt>();
-      nodeInt->int_lit = token;
-      NodeExpr* nodeExpr = m_arena.alloc<NodeExpr>();
-      nodeExpr->expr = nodeInt;
-      return nodeExpr;
-    }
-    if (token.type == tokinaizer::TokenType::IDENT) {
-      consume();
-
-      NodeIdent* nodeIdent = m_arena.alloc<NodeIdent>();
-      nodeIdent->ident = token;
-      NodeExpr* nodeExpr = m_arena.alloc<NodeExpr>();
-      nodeExpr->expr = nodeIdent;
-      return nodeExpr;
-    }
-    return {};
-  }
-
+  vector<tokinaizer::Token> tokens;
+  size_t size = 0;
   ArenaAllocator m_arena;
+
 };

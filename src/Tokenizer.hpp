@@ -17,7 +17,8 @@ public:
         SEMI,
         VAR,
         IDENT,
-        EQ
+        EQ,
+        PLUS
     };
     struct Token
     {
@@ -106,6 +107,14 @@ public:
                 string word;
                 word += src[i];
                 tokens.push_back({TokenType::EQ, word, line});
+                i++;
+                continue;
+            }
+            if (src[i] == '+')
+            {
+                string word;
+                word += src[i];
+                tokens.push_back({TokenType::PLUS, word, line});
                 i++;
                 continue;
             }

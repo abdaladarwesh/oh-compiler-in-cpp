@@ -1,30 +1,33 @@
 #pragma once
+#include <cassert>
+#include <cstddef>
 #include <cstdlib>
 #include <string>
-#include <unordered_map>
+#include <utility>
 #include <variant>
-#include "parser.hpp"
+#include <vector>
 #include "logging.hpp"
-
+#include "parser.hpp"
+#include <algorithm>
+#include <vector>
+#include <string>
 class Generator
 {
 public:
     // we made this method to generate the interface for the assembly
     // and to automaticlly parse all the statements without the need to do a lot of things in the main file
     string gen_prog(parser::NodeProg Prog){
-        string prog;
-        prog += "section .text\n";
-        prog += "    global _start\n";
-        prog += "_start:\n";
+        code += "section .text\n";
+        code += "    global _start\n";
+        code += "_start:\n";
 
         for (auto stmt: Prog.stmts){
-            string st = gen_stmt(stmt);
-            prog += st;
+            gen_stmt(stmt);
         }
         // the default exit if no exit was provided
-        prog += "    mov     rax, 60\n";
-        prog += "    syscall\n";
-        return prog;
+        code += "    mov     rax, 60\n";
+        code += "    syscall\n";
+        return code;
     }
 
     
@@ -32,90 +35,137 @@ public:
     ~Generator() {}
     
 private:
-    // we made this struct to be able to locate every variable on the stack
+
+    void gen_term(const parser::NodeTerm* te)
+    {
+        struct visitor
+        {
+            Generator *self;
+            void operator()(const parser::NodeIdent* ident) const{
+                const auto it = std::ranges::find_if(std::as_const(self->m_vars), [&](const m_var& var) {
+                    return var.value == ident->ident.value;
+                });
+                if (it == self->m_vars.cend()) {
+                    logging::error("Undeclared identifier: " + ident->ident.value , ident->ident);
+                }
+                self->push("QWORD [rsp + " + to_string(((self->m_size - it->location) * 8)) + "]\n");
+            }
+
+            void operator()(const parser::NodeInt* int_lit) const
+            {
+                self->code += "   mov rax, " + int_lit->int_lit.value + "\n";
+                self->push("rax");
+            }
+        };
+        std::visit(visitor{this},  te->var);
+    }
+
+    void gen_bin_expr(const parser::BinExpr* BE)
+    {
+        struct visitor
+        {
+            Generator *self;
+
+            void operator()(const parser::NodeBinExprPlus* Binplus)
+            {
+                string code;
+                self->genExpr(Binplus->lhs);
+                self->genExpr(Binplus->rhs);
+                self->pop("rax");
+                self->pop("rbx");
+                self->code += " add rax, rbx\n" ;
+                self->push("rax");
+            }
+            void operator()(const parser::NodeBinExprMulti* BinMulti)
+            {
+                assert(false); // TODO : not implemented
+            }
+        };
+        std::visit(visitor{this}, BE->var);
+    }
+
+    void genExpr(parser::NodeExpr* Expr){
+        struct visitor
+        {
+            Generator* self;
+            void operator()(const parser::NodeTerm* te) const
+            {
+                self->gen_term(te);
+            }
+            void operator()(const parser::BinExpr* BE) const
+            {
+                self->gen_bin_expr(BE);
+            }
+        };
+
+        std::visit(visitor{this}, Expr->var);
+
+    }
+
+    void gen_stmt(parser::NodeStmt* st)
+    {
+        // we made this visitor because the NodeStmt can be a variant of multiple types
+        struct visitor
+        {
+            Generator* self; // we passed this class pointer to acces the private fields of the class
+            void operator()(const parser::NodeExit* node) const
+            {
+                self->code += "; exit\n";
+                self->genExpr(node->expr);
+                self->code += "    mov     rax, 60\n";
+                self->pop("rdi");
+                self->code += "    syscall\n";
+                self->code += "    ; /exit\n";
+            }
+            void operator()(const parser::NodeVar* node) const
+            {
+                self->code += "    ; let\n";
+                if (std::ranges::find_if(
+                    std::as_const(self->m_vars),
+                        [&](const m_var& var) { return var.value == node->token.value; })
+                    != self->m_vars.cend()) {
+                        logging::error("Already Decleared Identfier", node->token);
+                }
+				size_t gg = self->m_size;
+                self->m_vars.push_back(m_var{++gg, node->token.value});
+                self->genExpr(node->expr);
+                self->code += "    ; end let\n";
+            }
+            void operator()(const parser::NodeAssign* node) const{
+
+                const auto it = std::ranges::find_if(self->m_vars, [&](const m_var &var) {
+                    return var.value == node->token.value;
+                });
+                if (it == self->m_vars.cend()) {
+                    logging::error("Undecleared Identfire", node->token);
+                }
+                self->genExpr(node->expr);
+                self->pop("rax");
+                self->code += "    mov [rsp + " + to_string((self->m_size - it->location ) * 8 ) += "], rax\n";
+            }
+        };
+
+        std::visit(visitor{this}, st->var);
+    }
+
+
+
+    void push(string reg){
+        code += "   push " + reg + "\n";
+        m_size++;
+    }
+
+    void pop(string reg){
+        code += "   pop " + reg + "\n";
+        m_size--;  
+    }
+    
+    string code;
     struct m_var
     {
         size_t location;
         string value;
     };
     size_t m_size = 0; // to know the size of the stack
-    std::unordered_map<std::string, m_var> m_vars; // to assign every variable to its name
-    
-    string gen_stmt(parser::NodeStmt* st)
-    {
-        // we made this visitor because the NodeStmt can be a variant of multiple types
-        struct visitor
-        {
-            Generator* self; // we passed this class pointer to acces the private fields of the class
-            string operator()(const parser::NodeExit* node) const
-            {
-                string code;
-                if (auto identptr = std::get_if<parser::NodeIdent *>(&node->expr->expr)){
-                    auto ident = *identptr;
-                    auto it = self->m_vars.find(ident->ident.value);
-                    if (it == self->m_vars.end()){
-                        cerr << "Undecleared identfire '" << ident->ident.value << "'" << endl;
-                        exit(EXIT_FAILURE);
-                    }
-                    code += "    mov rdi, [rsp + " + to_string((self->m_size - it->second.location) * 8) + "]\n";
-                    code += "    mov     rax, 60\n";
-                    code += "    syscall\n";
-                    return code;
-                }
-                auto intptr = std::get_if<parser::NodeInt*>(&node->expr->expr);
-                auto int_lit = *intptr;
-                code += "   mov rdi, " + int_lit->int_lit.value + "\n";
-                code += "   mov     rax, 60\n";
-                code += "   syscall\n";
-                return code;
-            }
-            string operator()(const parser::NodeVar* node) const
-            {
-                string code;
-                auto exprPtr = std::get_if<parser::NodeIdent*>(&node->expr->expr);
-                if (exprPtr != NULL){
-                    auto expr = *exprPtr;
-                    auto it = self->m_vars.find(expr->ident.value);
-                    if (it == self->m_vars.end()){
-                        logging::error("Undecleared identfire '" + expr->ident.value + "'", node->token);
-                    }
-                    m_var var = {++self->m_size, it->second.value};
-                    self->m_vars.insert({node->token.value, var});
-                    code += "    push " + it->second.value + "\n";
-                    return code;
-                }
-                auto exprPt = std::get_if<parser::NodeInt*>(&node->expr->expr);
-                auto ex = *exprPt;
-                m_var var = {++self->m_size, ex->int_lit.value};
-                self->m_vars.insert({node->token.value, var});
-                code += "    push " + ex->int_lit.value + "\n";
-                return code;
-            }
-            string operator()(const parser::NodeAssign* node) const{
-                string code;
-                auto var = self->m_vars.find(node->token.value);
-                if (var == self->m_vars.end()){
-                    logging::error("Undecleared identfire '" + node->token.value + "'", node->token);
-                }
-                auto exprPtr = std::get_if<parser::NodeIdent*>(&node->expr->expr);
-                if (exprPtr != NULL){
-                    auto exprValue = * exprPtr;
-                    auto it = self->m_vars.find(exprValue->ident.value);
-                    if (it == self->m_vars.end()){
-                        logging::error("Undecleared identfire '" + exprValue->ident.value + "'", node->token);
-                    }
-                    var->second.value = it->second.value;
-                    code += "    mov QWORD [rsp + " + to_string((self->m_size - var->second.location) * 8) + "], " + var->second.value + "\n";
-                    return code;
-                }
-                auto expr2Ptr = std::get_if<parser::NodeInt*>(&node->expr->expr);
-                auto ex = *expr2Ptr;
-                var->second.value = ex->int_lit.value;
-                code += "    mov QWORD [rsp + " + to_string((self->m_size - var->second.location) * 8) + "], " + var->second.value + "\n";
-                return code;
-            }
-        };
-
-        return std::visit(visitor{this}, st->stmt);
-    }
+    std::vector<m_var> m_vars;
 };
