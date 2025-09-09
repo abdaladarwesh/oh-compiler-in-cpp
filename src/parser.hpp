@@ -2,6 +2,7 @@
 #include "Tokenizer.hpp"
 #include "arena.hpp"
 #include "logging.hpp"
+#include <cassert>
 #include <cstdlib>
 #include <optional>
 #include <variant>
@@ -52,8 +53,16 @@ public:
     NodeExpr *lhs;
     NodeExpr *rhs;
   };
+  struct NodeBinExprSub {
+    NodeExpr *lhs;
+    NodeExpr *rhs;
+  };
+  struct NodeBinExprDev {
+    NodeExpr *lhs;
+    NodeExpr *rhs;
+  };
   struct BinExpr {
-    std::variant<NodeBinExprMulti *, NodeBinExprPlus *> var;
+    std::variant<NodeBinExprMulti *, NodeBinExprPlus *, NodeBinExprDev* , NodeBinExprSub*> var;
   };
 
   NodeProg parse_stmt(vector<tokinaizer::Token> toks) {
@@ -117,7 +126,6 @@ public:
   ~parser() {}
 
 private:
-
   optional<NodeTerm *> parse_term(tokinaizer::Token token) {
     if (token.type == tokinaizer::TokenType::NUMBER) {
       NodeInt *nodeInt = m_arena.alloc<NodeInt>();
@@ -139,34 +147,70 @@ private:
     }
   }
 
-  optional<NodeExpr *> parse_expr(tokinaizer::Token token) {
-    if (auto lhsterm = parse_term(token)) {
-      if (peek().has_value() &&
-          peek().value().type == tokinaizer::TokenType::PLUS) {
-        consume();
-        BinExpr* binExpr = m_arena.alloc<BinExpr>();
-        NodeExpr* lhs = m_arena.alloc<NodeExpr>();
-        lhs->var = lhsterm.value();
-        NodeExpr* rhs = m_arena.alloc<NodeExpr>();
-        rhs->var = parse_term(peek().value()).value();
-        NodeBinExprPlus* plusExpr = m_arena.alloc<NodeBinExprPlus>();
-        plusExpr->lhs = lhs;
-        plusExpr->rhs = rhs;
-        binExpr->var = plusExpr;
-        NodeExpr* TheExpr = m_arena.alloc<NodeExpr>();
-        TheExpr->var = binExpr;
-        return TheExpr;
+  optional<NodeExpr *> parse_expr(tokinaizer::Token token, const int min_prec = 0) {
+
+    std::optional<NodeTerm*> term_lhs = parse_term(token);
+    optional<int> prec;
+    if (!term_lhs.has_value())
+      return {};
+    NodeExpr* expr_lhs = m_arena.alloc<NodeExpr>();
+    expr_lhs->var = term_lhs.value();
+    while (true) {
+      auto curr_token = peek();
+      if (curr_token.has_value())
+      {
+         prec = tokinaizer::op_prec(curr_token.value().type);
+         if (!prec.has_value() || prec < min_prec){
+           break;
+        }
       } 
       else {
-        NodeExpr *nodeExpr = m_arena.alloc<NodeExpr>();
-        nodeExpr->var = lhsterm.value();
-        return nodeExpr;
-      } 
+        break;
+      }
+      const optional<tokinaizer::Token> cur_t = peek().value();
+      consume();
+      int next_min_prec =  prec.value() + 1;
+      auto expr_rhs = parse_expr(peek().value(), next_min_prec);
+      if (!expr_rhs.has_value()){
+        logging::error("Unable to parse an exepression", token);
+      }
+      BinExpr* bin_expr = m_arena.alloc<BinExpr>();
+      NodeExpr* lhs_expr = m_arena.alloc<NodeExpr>();
+      if (cur_t->type == tokinaizer::TokenType::PLUS){
+        lhs_expr->var = expr_lhs->var;
+        NodeBinExprPlus* add = m_arena.alloc<NodeBinExprPlus>();
+        add->rhs = expr_rhs.value();
+        add->lhs = lhs_expr;
+        bin_expr->var = add;
+      }
+      else if (cur_t->type == tokinaizer::TokenType::MULTI){
+        lhs_expr->var = expr_lhs->var;
+        NodeBinExprMulti* multi = m_arena.alloc<NodeBinExprMulti>();
+        multi->rhs = expr_rhs.value();
+        multi->lhs = lhs_expr;
+        bin_expr->var = multi;
+      }
+      else if (cur_t->type == tokinaizer::TokenType::SLASH){
+        lhs_expr->var = expr_lhs->var;
+        NodeBinExprDev* dev = m_arena.alloc<NodeBinExprDev>();
+        dev->rhs = expr_rhs.value();
+        dev->lhs = lhs_expr;
+        bin_expr->var = dev;
+      }
+      else if (cur_t->type == tokinaizer::TokenType::MINUS){
+        lhs_expr->var = expr_lhs->var;
+        NodeBinExprSub* sub = m_arena.alloc<NodeBinExprSub>();
+        sub->rhs = expr_rhs.value();
+        sub->lhs = lhs_expr;
+        bin_expr->var = sub;
+      }
+      else{
+        assert(false); // Unreachable;
+      }
+      expr_lhs->var = bin_expr;
     }
-    return {};
+    return expr_lhs;
   }
-
-
 
   optional<tokinaizer::Token> peek(int offset = 0) {
     if (size + offset < tokens.size()) {
@@ -188,5 +232,4 @@ private:
   vector<tokinaizer::Token> tokens;
   size_t size = 0;
   ArenaAllocator m_arena;
-
 };

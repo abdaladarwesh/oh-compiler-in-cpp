@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <vector>
 #include <string>
+
+
 class Generator
 {
 public:
@@ -18,15 +20,15 @@ public:
     // and to automaticlly parse all the statements without the need to do a lot of things in the main file
     string gen_prog(parser::NodeProg Prog){
         code += "section .text\n";
-        code += "    global _start\n";
+        code += "   global _start\n";
         code += "_start:\n";
 
         for (auto stmt: Prog.stmts){
             gen_stmt(stmt);
         }
         // the default exit if no exit was provided
-        code += "    mov     rax, 60\n";
-        code += "    syscall\n";
+        code += "   mov     rax, 60\n";
+        code += "   syscall\n";
         return code;
     }
 
@@ -68,17 +70,40 @@ private:
 
             void operator()(const parser::NodeBinExprPlus* Binplus)
             {
-                string code;
                 self->genExpr(Binplus->lhs);
                 self->genExpr(Binplus->rhs);
                 self->pop("rax");
                 self->pop("rbx");
-                self->code += " add rax, rbx\n" ;
+                self->code += "   add rax, rbx\n" ;
                 self->push("rax");
             }
             void operator()(const parser::NodeBinExprMulti* BinMulti)
             {
-                assert(false); // TODO : not implemented
+                self->genExpr(BinMulti->lhs);
+                self->genExpr(BinMulti->rhs);
+                self->pop("rax");
+                self->pop("rbx");
+                self->code += "   mul rbx\n" ;
+                self->push("rax"); 
+            }
+            void operator()(const parser::NodeBinExprSub* BinSub)
+            {
+                self->genExpr(BinSub->lhs);
+                self->genExpr(BinSub->rhs);
+                self->pop("rbx");
+                self->pop("rax");
+                self->code += "   sub rax, rbx\n" ;
+                self->push("rax"); 
+            }
+            void operator()(const parser::NodeBinExprDev* BinDiv)
+            {
+                self->genExpr(BinDiv->lhs);
+                self->genExpr(BinDiv->rhs);
+                self->pop("rax");
+                self->code += "   xor rdx, rdx\n";
+                self->pop("rbx");
+                self->code += "   div rbx\n" ;
+                self->push("rdx"); 
             }
         };
         std::visit(visitor{this}, BE->var);
@@ -110,16 +135,16 @@ private:
             Generator* self; // we passed this class pointer to acces the private fields of the class
             void operator()(const parser::NodeExit* node) const
             {
-                self->code += "; exit\n";
+                self->code += "   ; exit\n";
                 self->genExpr(node->expr);
-                self->code += "    mov     rax, 60\n";
+                self->code += "   mov     rax, 60\n";
                 self->pop("rdi");
-                self->code += "    syscall\n";
-                self->code += "    ; /exit\n";
+                self->code += "   syscall\n";
+                self->code += "   ; /exit\n";
             }
             void operator()(const parser::NodeVar* node) const
             {
-                self->code += "    ; let\n";
+                self->code += "   ; let\n";
                 if (std::ranges::find_if(
                     std::as_const(self->m_vars),
                         [&](const m_var& var) { return var.value == node->token.value; })
@@ -129,7 +154,7 @@ private:
 				size_t gg = self->m_size;
                 self->m_vars.push_back(m_var{++gg, node->token.value});
                 self->genExpr(node->expr);
-                self->code += "    ; end let\n";
+                self->code += "   ; end let\n";
             }
             void operator()(const parser::NodeAssign* node) const{
 
@@ -141,7 +166,7 @@ private:
                 }
                 self->genExpr(node->expr);
                 self->pop("rax");
-                self->code += "    mov [rsp + " + to_string((self->m_size - it->location ) * 8 ) += "], rax\n";
+                self->code += "   mov [rsp + " + to_string((self->m_size - it->location ) * 8 ) += "], rax\n";
             }
         };
 

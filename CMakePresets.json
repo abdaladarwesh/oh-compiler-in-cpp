@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default Make Configuration",
+      "description": "Sets the generator to Unix Makefiles.",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build"
+    }
+  ]
+}

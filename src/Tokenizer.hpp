@@ -1,5 +1,6 @@
 #pragma once
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 #include <cctype>
@@ -18,7 +19,10 @@ public:
         VAR,
         IDENT,
         EQ,
-        PLUS
+        PLUS,
+        MULTI,
+        SLASH,
+        MINUS
     };
     struct Token
     {
@@ -27,6 +31,19 @@ public:
         size_t line;
     };
     size_t line = 1;
+
+    static std::optional<int> op_prec (const TokenType t){
+        switch (t) {
+            case TokenType::PLUS:
+            case TokenType::MINUS:
+                return 2;
+            case TokenType::MULTI:
+            case TokenType::SLASH:
+                return 3;
+            default:
+                return {};
+        }
+    }
 
     vector<Token> tokenize(const string &src)
     {
@@ -115,6 +132,30 @@ public:
                 string word;
                 word += src[i];
                 tokens.push_back({TokenType::PLUS, word, line});
+                i++;
+                continue;
+            }
+            if (src[i] == '*')
+            {
+                string word;
+                word += src[i];
+                tokens.push_back({TokenType::MULTI, word, line});
+                i++;
+                continue;
+            }
+            if (src[i] == '/')
+            {
+                string word;
+                word += src[i];
+                tokens.push_back({TokenType::SLASH, word, line});
+                i++;
+                continue;
+            }
+            if (src[i] == '-')
+            {
+                string word;
+                word += src[i];
+                tokens.push_back({TokenType::MINUS, word, line});
                 i++;
                 continue;
             }
